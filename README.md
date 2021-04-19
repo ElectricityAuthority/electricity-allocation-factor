@@ -34,12 +34,12 @@ Configure the environment variables
 * `EMI_SAS` - SAS for EMI datasets. See the [EMI forum](https://forum.emi.ea.govt.nz/thread/accessing-emi-datasets-with-azure-storage-explorer/) for the latest SAS to use.
 * `GAMS_PATH` - Path to your GAMS installation. Only required for running tests.
 
-For more information on running the EAF process, see the [vignette provided](vignettes/EAF calculation process.Rmd).
+For more information on running the EAF process, see the [vignette provided](https://github.com/ElectricityAuthority/electricity-allocation-factor/blob/master/vignettes/EAF%20calculation%20process.Rmd).
 
 # Data
 
 There are four input datasets used in this calculation. Wholesale market data, such as offers, is available from the wholesale datasets section on EMI.
-The data specific to this project is available at **TODO EMI LINK**
+The data specific to this project is available in a [project section](https://www.emi.ea.govt.nz/Wholesale/Datasets/_AdditionalInformation/SupportingInformationAndAnalysis/2021/20210419_EAF_Data) on EMI.
 
 ## ETS data
 
