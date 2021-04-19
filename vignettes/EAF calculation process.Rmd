@@ -1,0 +1,112 @@
+---
+title: "EAF calculation process"
+author: "Electricity Authority"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(here)
+source(here::here('libraries.R'))
+
+Sys.setenv('EMI_SAS' = "sv=2019-12-12&si=exp2022-03-31&sr=c&sig=m2kSNI61k%2BmyHl1O84EdFlaXbgRMve%2BNByuDIzoMMXg%3D")
+offers_from_trade_date='2016-01-01'
+offers_to_trade_date='2016-12-31'
+from_trade_date='2016-01-01'
+to_trade_date='2016-12-31'
+scenario_type=2
+run_name='default'
+output_path='data/output'
+```
+
+# Overview
+
+This vignette shows an example of the EAF calculation process. This takes you through generating the offer adjustments, configuring a vSPD experiment for the counterfactual, and calculating the final EAF from the results. 
+
+# Setup
+
+Follow the instructions from the README to install all necessary dependencies. The SAS you configure for access to EMI datasets should have the format shown.
+
+```{r}
+Sys.getenv('EMI_SAS')
+```
+
+# Generating offer overrides for scenario 2
+
+First source `main.R` to load the necessary functions. To generate the scenario 2 adjustment  for 2016 then run.
+
+```{r, eval = FALSE}
+source('main.R')
+
+generate_offer_adjustments(offers_from_trade_date = '2016-01-01',
+                           offers_to_trade_date = '2016-12-31',
+                           run_name = "default",
+                           scenario_type = '2',
+                           dl_offers = TRUE,
+                           dl_assumptions = TRUE)
+```
+
+Note that we only need to download input offers and assumptions once. You can set `dl_offers` and `dl_assumptions` to `FALSE` on subsequent runs to speed things up.
+
+This can then be edited to produce an offer adjustment override for different periods.
+
+This then produces an output file ``r file.path(output_path, 'GDX', glue("{offers_from_trade_date}-{offers_to_trade_date}-scenario{scenario_type}-{run_name}-ets-offer-overides.gdx"))``, which is used with vSPD. You will need to move this to the directory `{path to your vSPD installation}/Override/`.
+
+# Running counterfactual simulations
+
+You will need a GAMS license to run this simulation. First download the final pricing case files for the same period as in stage 1.
+
+```{r, eval = FALSE}
+
+download_emi_final_pricing_case_files(from_trade_date = '2019-01-01',
+                                      to_trade_date = '2019-12-31',
+                                      download_dir = "{path to your vSPD installation}/Input")
+
+```
+
+Then generate the file list for the counterfactual experiment.
+
+```{r, eval = FALSE}
+
+generate_file_manifest_dir(in_dir = '{path to your vSPD installation}/Input'
+                           out_file = '{path to your vSPD installation}/Programs/vSPDfileList.inc')
+
+```
+
+Finally edit the settings file `{path to your vSPD installation}/vSPDSettings.inc`, the `vSPDinputOvrdData` path should be set to the name of your override file in the overide folder (e.g. ``r glue("{offers_from_trade_date}-{offers_to_trade_date}-scenario{scenario_type}-{run_name}-ets-offer-overides.gdx")``). You may also wish to set the `runName` option. 
+
+Once this is configured run `gams runvSPD` to run the experiment. You will need the file `{runName}_NodeResults_TP.csv` from the results to calculate EAF factors. You may wish to move this from the results to the default input directory `data/input/prices/Counterfactual/`.
+
+# Generating offer adjustments for scenario 3 
+
+Using the price file from the previous step, we can then calculate the scenario 3 offer adjustment. 
+
+```{r, eval = FALSE}
+generate_offer_adjustments(offers_from_trade_date = '2016-01-01',
+                           offers_to_trade_date = '2016-12-31',
+                           run_name = "default",
+                           scenario_type = '3',
+                           df_cf_prices_file = glue('data/input/prices/Counterfactual/{runName}_NodeResults_TP.csv'),
+                           dl_offers = TRUE,
+                           dl_assumptions = TRUE)
+```
+
+This then gives us a new override file for the same time period. You can repeat the counterfactual simulation step with this override file to produce the scenario 3 counterfactual prices.
+
+# Generating EAF factors
+
+Finally we calculate the EAF for the period of interest. Note that this currently only supports annual results.
+
+```{r, eval = FALSE}
+calculate_annual_eaf(from_trade_date,
+                     to_trade_date,
+                     cf_prices_file,
+                     scenario_type = c('2', '3'),
+                     run_name = "",
+                     dl_fp = TRUE,
+                     dl_assumptions = TRUE)
+```
+
+As in the offer adjustment, we only require `dl_fp` and `dl_assumptions` to be `TRUE` the first time we run a particular calculation.
+This will then output a file (by default ``r glue("data/output/eaf/{from_trade_date}-{to_trade_date}-scenario-{scenario_type}-{run_name}-eaf.csv")``) containing the EAF for the period of interest.
+
